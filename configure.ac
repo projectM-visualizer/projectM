@@ -74,6 +74,8 @@ AC_CONFIG_FILES([
   src/projectM-pulseaudio/Makefile
   src/projectM-jack/Makefile
   src/projectM-test/Makefile
+  src/projectM-gst/Makefile
+  src/projectM-gst/element/Makefile
 ])
 
 
@@ -209,10 +211,35 @@ AS_IF([test "$enable_jack" != "no"],
         [enable_jack=no])])])
 
 
+AC_ARG_ENABLE([gst], AS_HELP_STRING([--enable-gst], [Build GStreamer]), [], [enable_gst=check])
+AS_IF([test "$enable_gst" != "no"],
+    [PKG_CHECK_MODULES([GST],
+    [gstreamer-1.0 gstreamer-audio-1.0],
+    [
+      enable_gst=yes
+
+      dnl set the plugindir where plugins should be installed (for plugins/Makefile.am)
+      if test "x${prefix}" = "x$HOME"; then
+         gstplugindir="$HOME/.gstreamer-1.0/plugins"
+      else
+         gstplugindir="\$(libdir)/gstreamer-1.0"
+      fi
+      AC_SUBST(gstplugindir)
+
+      dnl set proper LDFLAGS for plugins
+      GST_PLUGIN_LDFLAGS='-module -avoid-version -export-symbols-regex [_]*\(gst_\|Gst\|GST_\).*'
+      AC_SUBST(GST_PLUGIN_LDFLAGS)
+    ],
+    [AS_IF([test "$enable_gst" = "yes"],
+        [AC_MSG_ERROR([gstreamer-1.0 required, but not found.])],
+        [enable_gst=no])])])
+
+
 AM_CONDITIONAL([ENABLE_SDL], [test "x$enable_sdl" = "xyes"])
 AM_CONDITIONAL([ENABLE_QT], [test "x$enable_qt" = "xyes"])
 AM_CONDITIONAL([ENABLE_JACK], [test "x$enable_jack" = "xyes"])
 AM_CONDITIONAL([ENABLE_PULSEAUDIO], [test "x$enable_pulseaudio" = "xyes"])
+AM_CONDITIONAL([ENABLE_GST], [test "x$enable_gst" = "xyes"])
 AM_CONDITIONAL([ENABLE_EMSCRIPTEN], [test "x$enable_emscripten" = "xyes"])
 
 
@@ -255,4 +282,5 @@ Jack:                   ${enable_jack}
 OpenGLES:               ${enable_gles}
 Emscripten:             ${enable_emscripten}
 llvm:                   ${enable_llvm}
+gstreamer:              ${enable_gst}
 ])
