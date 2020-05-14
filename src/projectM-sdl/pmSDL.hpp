@@ -76,7 +76,7 @@
         #define DATADIR_PATH "."
         #warning "DATADIR_PATH is not defined - falling back to ./"
     #else
-        #define DATADIR_PATH "/usr/local/share/projectM"
+        #define DATADIR_PATH "/usr/local/share/projectM/"
 #ifndef WIN32
         #warning "DATADIR_PATH is not defined - falling back to /usr/local/share/projectM"
 #endif /** WIN32 */
@@ -90,6 +90,7 @@ public:
     bool done;
     projectMSDL(Settings settings, int flags);
     projectMSDL(std::string config_file, int flags);
+    projectMSDL(ConfigPreset configPreset, int flags);
     void init(SDL_Window *window, SDL_GLContext *glCtx, const bool renderToTexture = false);
     int openAudioInput();
     int toggleAudioInput();
