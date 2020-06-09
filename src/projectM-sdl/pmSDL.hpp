@@ -76,11 +76,13 @@
         #define DATADIR_PATH "."
         #warning "DATADIR_PATH is not defined - falling back to ./"
     #else
-        #define DATADIR_PATH "/usr/local/share/projectM"
-#ifndef WIN32
-        #warning "DATADIR_PATH is not defined - falling back to /usr/local/share/projectM"
-#endif /** WIN32 */
-    #endif
+        #ifdef WIN32
+            #define DATADIR_PATH std::string(SDL_GetBasePath()) + "../../../src\\projectM-sdl";
+        #else
+            #define DATADIR_PATH "/usr/local/share/projectM"
+        #endif
+    #endif /** WIN32 */
+//    #warning "DATADIR_PATH is not defined - falling back to /usr/local/share/projectM"
 #endif
 
 class projectMSDL : public projectM {
@@ -106,6 +108,20 @@ public:
     std::string getActivePresetName();
     void addFakePCM();
     
+    //Holds text input information
+	struct inputText
+	{
+		bool isOn = false;
+		bool isRendering = false;
+		std::string text = "";
+		void reset()
+		{
+			isOn = false;
+			//isRendering = false;
+			text = "";
+		}
+	} input;
+
     virtual void presetSwitchedEvent(bool isHardCut, size_t index) const;
 
 private:

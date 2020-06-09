@@ -24,6 +24,8 @@ using namespace std::chrono;
 
 #endif /** USE_TEXT_MENU */
 
+#define TOAST_TIME 2
+
 // for final composite grid:
 #define FCGSX 32 // final composite gridsize - # verts - should be EVEN.
 #define FCGSY 24 // final composite gridsize - # verts - should be EVEN.
@@ -41,25 +43,34 @@ typedef struct
 class Texture;
 class BeatDetect;
 class TextureManager;
+class TimeKeeper;
 
 class Renderer
 {
 
 public:
-
-  bool showfps;
-  bool showtitle;
-  bool showpreset;
-  bool showhelp;
-  bool showstats;
+	enum : unsigned short int //Bit flags for rendering, limited to 16 flags (change type if we need more)
+  {
+  	SHOW_FPS = 1,
+  	SHOW_HELP = 1 << 1,
+  	SHOW_INPUTTEXT = 1 << 2,
+  	SHOW_PRESET = 1 << 3,
+  	SHOW_RATING = 1 << 4,
+  	SHOW_STATS = 1 << 5,
+  	SHOW_TITLE = 1 << 6,
+  	SHOW_TOAST = 1 << 7
+  };
 
   bool studio;
   bool correction;
 
   bool noSwitch;
 
-  milliseconds lastTime;
-  milliseconds currentTime;
+  milliseconds lastTimeFPS;
+  milliseconds currentTimeFPS;
+
+  milliseconds lastTimeToast;
+  milliseconds currentTimeToast;
 
   int totalframes;
   float realfps;
@@ -83,6 +94,8 @@ public:
   void reset(int w, int h);
   GLuint initRenderToTexture();
 
+  bool timeCheck(const milliseconds currentTime, const milliseconds lastTime, const double difference);
+
   std::string SetPipeline(Pipeline &pipeline);
 
   void setPresetName(const std::string& theValue)
@@ -102,14 +115,46 @@ public:
   std::string fps() const {
 		return m_fps;
   }
+
+  milliseconds nowMilliseconds() {
+		return duration_cast<milliseconds>(system_clock::now().time_since_epoch());;
+  }
+
+  void setToastMessage(const std::string& theValue);
+
+  std::string toastMessage() const {
+    return m_toastMessage;
+  }
   
-private:
+  void setRating(const int &theValue) {
+      m_rating = std::to_string(theValue);
+  }
+
+  std::string rating() const {
+      return m_rating;
+  }
+
+  void setInputText(std::string& input) {
+      m_inputText = input;
+  }
+
+  std::string inputText() const {
+      return m_inputText;
+  }
+
+    /// Set what menu item to display
+    void toggleDisplayMode(int displaymode);
+    /// Clear bits at display mode, modes can be OR'd
+    void clearDisplayMode(int displaymode);
+	private:
 
   PerPixelMesh mesh;
   BeatDetect *beatDetect;
   TextureManager *textureManager;
   static Pipeline* currentPipe;
-
+  TimeKeeper *timeKeeperFPS;
+  TimeKeeper *timeKeeperToast;
+  unsigned short int m_displayModes = 0;
 #ifdef USE_TEXT_MENU
 
   void drawText(GLTtext* text, const char* string, GLfloat x, GLfloat y, GLfloat scale, int horizontalAlignment,
@@ -124,6 +169,9 @@ private:
   std::string m_presetName;
   std::string m_datadir;
   std::string m_fps;
+  std::string m_rating;
+  std::string m_inputText;
+  std::string m_toastMessage;
 
   float* p;
 
@@ -172,6 +220,7 @@ private:
 
   void rescale_per_pixel_matrices();
 
+  void draw_toast();
   void draw_fps();
   void draw_stats();
   void draw_help();
@@ -179,6 +228,8 @@ private:
   void draw_title();
   void draw_title_to_screen(bool flip);
   void draw_title_to_texture();
+  void draw_rating();
+  void draw_inputText();
 
   int nearestPower2( int value );
 

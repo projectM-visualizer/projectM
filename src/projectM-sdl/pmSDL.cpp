@@ -110,6 +110,9 @@ int projectMSDL::initAudioInput() {
 
     // read characteristics of opened capture device
     SDL_Log("Opened audio capture device index=%i devId=%i: %s", selectedAudioDevice, audioDeviceID, SDL_GetAudioDeviceName(selectedAudioDevice, true));
+    std::string deviceToast = "Listening to ";
+    deviceToast += SDL_GetAudioDeviceName(selectedAudioDevice, true);
+    projectM::setToastMessage(deviceToast);
     SDL_Log("Samples: %i, frequency: %i, channels: %i, format: %i", have.samples, have.freq, have.channels, have.format);
     audioChannelsCount = have.channels;
     audioSampleRate = have.freq;
@@ -253,12 +256,12 @@ void projectMSDL::keyHandler(SDL_Event *sdl_evt) {
     projectMModifier mod;
     SDL_Keymod sdl_mod = (SDL_Keymod) sdl_evt->key.keysym.mod;
     SDL_Keycode sdl_keycode = sdl_evt->key.keysym.sym;
-
 	// handle keyboard input (for our app first, then projectM)
     switch (sdl_keycode) {
         case SDLK_q:
             if (sdl_mod & KMOD_LGUI || sdl_mod & KMOD_RGUI || sdl_mod & KMOD_LCTRL) {
                 // cmd/ctrl-q = quit
+                writeRatings();
                 done = 1;
                 return;
             }
@@ -316,16 +319,20 @@ void projectMSDL::keyHandler(SDL_Event *sdl_evt) {
 
 
 					case SDLK_SPACE:
-						setPresetLock(
-							!isPresetLocked()
-						);
+						if (!input.isOn)
+						{
+							setPresetLock(!isPresetLocked());
+						}
 						break;
-					case SDLK_F1:
 					case SDLK_ESCAPE:
-
-						// exit(1);
-						// show help with other keys
-						sdl_keycode = SDLK_F1;
+						if (input.isOn)
+						{
+							input.reset();
+							SDL_StopTextInput();
+						    break;
+						}
+					case SDLK_F1:
+                        sdl_keycode = SDLK_F1;
 						break;
 					case SDLK_DELETE:
 						/*
@@ -360,6 +367,45 @@ void projectMSDL::keyHandler(SDL_Event *sdl_evt) {
 							printf("Delete failed");
 						}
 								*/
+						if (input.isOn)
+						{
+							input.reset();
+							SDL_StopTextInput();
+						}
+						break;
+					case SDLK_z:
+						if (!input.isOn)
+						{
+							SDL_StartTextInput();
+							input.isOn = true;
+						}
+						break;
+						// Handle backspace
+					case SDLK_BACKSPACE:
+						if (input.isOn && input.text.size() > 0)
+						{
+							// lop off character
+							input.text.pop_back();
+							updateInputText(input.text);
+						}
+						break;
+						// Handle copy
+					case SDLK_c:
+						if (input.isOn && (sdl_mod & (KMOD_CTRL | KMOD_GUI)))
+						{
+							SDL_SetClipboardText(input.text.c_str());
+						}
+						break;
+					// Handle paste
+					case SDLK_v:
+						if (input.isOn && (sdl_mod & (KMOD_CTRL | KMOD_GUI)))
+						{
+							if (SDL_HasClipboardText() == SDL_TRUE)
+							{
+								input.text = SDL_GetClipboardText();
+								updateInputText(input.text);
+							}
+						}
 						break;
     }
 
@@ -422,6 +468,23 @@ void projectMSDL::pollEvent() {
             case SDL_QUIT:
                 done = true;
                 break;
+			case SDL_TEXTINPUT:
+				if (input.isOn)
+				{
+					if (input.isRendering)
+					{
+						if (!(SDL_GetModState() & (KMOD_CTRL | KMOD_GUI)
+									&& (evt.text.text[0] == 'c' || evt.text.text[0] == 'C'
+											|| evt.text.text[0] == 'v' || evt.text.text[0] == 'V')))
+						{
+							input.text += evt.text.text;
+							updateInputText(input.text);
+						}
+					}
+					else
+						input.isRendering = true;
+				}
+				break;
         }
     }
 }

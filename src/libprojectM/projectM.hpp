@@ -96,7 +96,7 @@ class MasterRenderItemMerge;
 #define PROJECTM_TITLE "projectM 2.0.00"
 
 /** Interface types */
-typedef enum {
+typedef enum { //use this idea for Renderer display modes
     MENU_INTERFACE,
     SHELL_INTERFACE,
     EDITOR_INTERFACE,
@@ -175,7 +175,7 @@ public:
   void changeTextureSize(int size);
   void changePresetDuration(int seconds);
   void getMeshSize(int *w, int *h);
-
+  void setToastMessage(const std::string & toastMessage);
   const Settings & settings() const {
 		return _settings;
   }
@@ -189,6 +189,9 @@ public:
 
   /// Plays a preset immediately
   void selectPreset(unsigned int index, bool hardCut = true);
+
+  /// Plays a preset immediately when given preset name
+  void selectPresetByName(std::string name, bool hardCut = true);
 
   /// Removes a preset from the play list. If it is playing then it will continue as normal until next switch
   void removePreset(unsigned int index);
@@ -233,6 +236,7 @@ public:
   /// Returns the url associated with a preset index
   std::string getPresetURL(unsigned int index) const;
 
+  unsigned int getPresetIndex(std::string &url) const;
   /// Returns the preset name associated with a preset index
   std::string getPresetName ( unsigned int index ) const;
  
@@ -241,7 +245,10 @@ public:
   /// Returns the rating associated with a preset index
   int getPresetRating (unsigned int index, const PresetRatingType ratingType) const;
 
-  void changePresetRating (unsigned int index, int rating, const PresetRatingType ratingType);  
+  void changePresetRating (unsigned int index, int rating, const PresetRatingType ratingType); 
+
+  /// Updates renderer text input by user
+  void updateInputText(std::string value);
 
   /// Returns the size of the play list
   unsigned int getPlaylistSize() const;
@@ -288,6 +295,14 @@ public:
   bool getErrorLoadingCurrentPreset() const { return errorLoadingCurrentPreset; }
 
   void default_key_handler(projectMEvent event, projectMKeycode keycode);
+  /// Handles text input (like when loading a preset by name)
+  void editor_key_handler(projectMEvent event, projectMKeycode keycode);
+  /// Sets the keyboard interface
+  void setInterface(interface_t interfacet);
+
+  ///Write ratings 
+  void writeRatings();
+
   Renderer *renderer;
 
 private:

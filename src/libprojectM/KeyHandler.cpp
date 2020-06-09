@@ -64,8 +64,11 @@ void refreshConsole() {
   }
 
 }
-
-void projectM::key_handler( projectMEvent event,
+void projectM::setInterface(interface_t interfacet)
+{
+	current_interface = interfacet;
+}
+	void projectM::key_handler( projectMEvent event,
                             projectMKeycode keycode, projectMModifier modifier ) {
 
 	switch( event ) {
@@ -84,7 +87,7 @@ void projectM::key_handler( projectMEvent event,
 	      //shell_key_handler();
 	      break;
 	    case EDITOR_INTERFACE:
-//	      editor_key_handler(event,keycode);
+	      editor_key_handler(event,keycode);
 	      break;
 	    case BROWSER_INTERFACE:
 //	      browser_key_handler(event,keycode,modifier);
@@ -121,44 +124,33 @@ void projectM::default_key_handler( projectMEvent event, projectMKeycode keycode
 			if (beatDetect->beat_sensitivity < 0) beatDetect->beat_sensitivity = 0;
 	      break;
 		case PROJECTM_K_h:
- 		  renderer->showhelp = !renderer->showhelp;
-	      renderer->showstats= false;
 	    case PROJECTM_K_F1:
-	      renderer->showhelp = !renderer->showhelp;
-	      renderer->showstats=false;
-	      renderer->showfps=false;
+			renderer->toggleDisplayMode(renderer->SHOW_HELP);
 	      break;
 	    case PROJECTM_K_y:
 		this->setShuffleEnabled(!this->isShuffleEnabled());
 		 break;
-
+		case PROJECTM_K_F6:
+			renderer->toggleDisplayMode(renderer->SHOW_RATING);
+			break;
 	    case PROJECTM_K_F5:
-		  renderer->showfps = !renderer->showfps;
-			// Initialize counters and reset frame count.
-			renderer->lastTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
-			renderer->currentTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
-			renderer->totalframes = 0;
 			// Hide preset name from screen and replace it with FPS counter.
-			if (renderer->showfps)
-			{
-				renderer->showpreset = false;
-			}
+			renderer->toggleDisplayMode(renderer->SHOW_FPS);
+			// Initialize counters and reset frame count.
+			renderer->lastTimeFPS = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+			renderer->currentTimeFPS = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+			renderer->totalframes = 0;
 	      break;
 	    case PROJECTM_K_F4:
-		if (!renderer->showhelp)
-	       		renderer->showstats = !renderer->showstats;
+			renderer->toggleDisplayMode(renderer->SHOW_STATS);
 	      break;
 	    case PROJECTM_K_F3: {
-	      renderer->showpreset = !renderer->showpreset;
 			// Hide FPS from screen and replace it with preset name.
-			if (renderer->showpreset)
-			{
-				renderer->showfps = false;
-			}
+		    renderer->toggleDisplayMode(renderer->SHOW_PRESET);
 	      break;
 	     }
 	    case PROJECTM_K_F2:
-	      renderer->showtitle = !renderer->showtitle;
+		  renderer->toggleDisplayMode(renderer->SHOW_TITLE);
 	      break;
 #ifndef MACOS
 	    case PROJECTM_K_F9:
@@ -202,13 +194,15 @@ void projectM::default_key_handler( projectMEvent event, projectMKeycode keycode
 	      selectPrevious(false);
 	      break;
 	    case PROJECTM_K_l:
-		renderer->noSwitch=!renderer->noSwitch;
-	      break;
+			setPresetLock(!isPresetLocked());
+			break;
 	    case PROJECTM_K_s:
             	renderer->studio = !renderer->studio;
 	    case PROJECTM_K_i:
 	        break;
 	    case PROJECTM_K_z:
+			renderer->toggleDisplayMode(renderer->SHOW_INPUTTEXT);
+		  setInterface(EDITOR_INTERFACE);
 	      break;
 	    case PROJECTM_K_0:
 //	      nWaveMode=0;
@@ -220,47 +214,68 @@ void projectM::default_key_handler( projectMEvent event, projectMKeycode keycode
 //	      nWaveMode=7;
 	      break;
 	    case PROJECTM_K_m:
+		  
 	      break;
 	    case PROJECTM_K_t:
 	      break;
 	    case PROJECTM_K_EQUALS:
 	    case PROJECTM_K_PLUS:
+			unsigned int index;
+			if (selectedPresetIndex(index))
+			{
+				const int oldRating = getPresetRating(index, HARD_CUT_RATING_TYPE);
 
-	    	unsigned int index;
+				if (oldRating >= 5) break;
 
-	    	if (selectedPresetIndex(index)) {
-
-	    		const int oldRating = getPresetRating(index, HARD_CUT_RATING_TYPE);
-
-	    		if (oldRating >= 6)
-	    			  break;
-
-	    		const int rating = oldRating + 1;
-
-	    		changePresetRating(index, rating, HARD_CUT_RATING_TYPE);
-	    	}
-
+				const int rating = oldRating + 1;
+				renderer->setToastMessage("Rating increased to: " + std::to_string(rating));
+				changePresetRating(index, rating, HARD_CUT_RATING_TYPE);
+			}
 	    	break;
-
 	    case PROJECTM_K_MINUS:
 	    	if (selectedPresetIndex(index)) {
 
 	    		const int oldRating = getPresetRating(index, HARD_CUT_RATING_TYPE);
 
-	    		if (oldRating <= 1)
-	    			  break;
+	    		if (oldRating <= 0) break;
 
 	    		const int rating = oldRating - 1;
-
+				renderer->setToastMessage("Rating decreased to: " + std::to_string(rating));
 	    		changePresetRating(index, rating, HARD_CUT_RATING_TYPE);
 	    	}
 	    	break;
-
 	    default:
 	      break;
 	    }
 	default:
 		break;
 
+	}
+}
+// Not sure if this is what editor interface was intended for but this will handle text input
+void projectM::editor_key_handler(projectMEvent event, projectMKeycode keycode)
+{
+	switch (event)
+	{
+		case PROJECTM_KEYDOWN:
+			
+			switch (keycode)
+			{
+				case PROJECTM_K_ESCAPE:
+					renderer->clearDisplayMode(renderer->SHOW_INPUTTEXT);
+					updateInputText("");
+					setInterface(DEFAULT_INTERFACE);
+					break;
+				case PROJECTM_K_RETURN:
+					// load preset when we have a name
+					selectPresetByName(renderer->inputText(), true);
+					renderer->clearDisplayMode(renderer->SHOW_INPUTTEXT);
+					updateInputText("");
+					setInterface(DEFAULT_INTERFACE);
+					break;
+				default:
+					break;
+			}
+		default: break;
 	}
 }

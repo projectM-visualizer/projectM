@@ -184,7 +184,16 @@ void projectM::readConfig (const std::string & configFile )
 #endif
 
 #ifdef WIN32
-    _settings.presetURL = config.read<string> ( "Preset Path", "/usr/local/share/projectM/presets" );
+        //Get the path of the executable
+		char exepath[MAX_PATH];
+		GetModuleFileName(NULL, exepath, MAX_PATH);
+
+        //Remove the .exe part of the path
+		std::string exedir(exepath);
+		exedir.erase(exedir.find_last_of("\\") + 1);
+
+        //Set the presetURL
+		_settings.presetURL = exedir + config.read<string>("Preset Path", "presets");
 #endif
 
 #ifdef __APPLE__
@@ -765,10 +774,14 @@ void projectM::selectPreset(unsigned int index, bool hardCut)
         return;
 
 
-    *m_presetPos = m_presetChooser->begin(index);
+    selectPresetPosition(index);
     switchPreset(hardCut);
 }
-
+void projectM::selectPresetByName(std::string name, bool hardCut) {
+	unsigned int index = getPresetIndex(name);
+	if (m_presetChooser->empty()) return;
+	selectPreset(index);  
+}
 void projectM::switchPreset(const bool hardCut) {
     std::string result;
 
@@ -835,6 +848,7 @@ void projectM::selectNext(const bool hardCut) {
 std::string projectM::switchPreset(std::unique_ptr<Preset> & targetPreset) {
 
     std::string result;
+	unsigned int index;
 
 #ifdef SYNC_PRESET_SWITCHES
     pthread_mutex_lock(&preset_mutex);
@@ -851,6 +865,10 @@ std::string projectM::switchPreset(std::unique_ptr<Preset> & targetPreset) {
 
 // Set preset name here- event is not done because at the moment this function is oblivious to smooth/hard switches
     renderer->setPresetName(targetPreset->name());
+
+	selectedPresetIndex(index);
+	renderer->setRating(getPresetRating(index, HARD_CUT_RATING_TYPE));
+
     result = renderer->SetPipeline(targetPreset->pipeline());
 
 #ifdef SYNC_PRESET_SWITCHES
@@ -863,6 +881,11 @@ std::string projectM::switchPreset(std::unique_ptr<Preset> & targetPreset) {
 void projectM::setPresetLock ( bool isLocked )
 {
     renderer->noSwitch = isLocked;
+    if (isPresetLocked()) {
+        renderer->setToastMessage("Preset Locked");
+    } else {
+        renderer->setToastMessage("Unlocked");
+    }
 }
 
 bool projectM::isPresetLocked() const
@@ -874,7 +897,10 @@ std::string projectM::getPresetURL ( unsigned int index ) const
 {
     return m_presetLoader->getPresetURL(index);
 }
-
+unsigned int projectM::getPresetIndex(std::string& name) const
+{
+	return m_presetLoader->getPresetIndex(name);
+}
 int projectM::getPresetRating ( unsigned int index, const PresetRatingType ratingType) const
 {
     return m_presetLoader->getPresetRating(index, ratingType);
@@ -916,8 +942,14 @@ unsigned int projectM::getPlaylistSize() const
 }
 
 void projectM::changePresetRating (unsigned int index, int rating, const PresetRatingType ratingType) {
+    renderer->setRating(rating);
     m_presetLoader->setRating(index, rating, ratingType);
     presetRatingChanged(index, rating, ratingType);
+}
+
+void projectM::updateInputText(std::string value)
+{
+	renderer->setInputText(value);
 }
 
 void projectM::insertPresetURL(unsigned int index, const std::string & presetURL, const std::string & presetName, const RatingList & ratings)
@@ -981,3 +1013,13 @@ void projectM::getMeshSize(int *w, int *h)	{
     *h = _settings.meshY;
 }
 
+void projectM::setToastMessage(const std::string & toastMessage)
+{
+    if ( renderer )
+        renderer->setToastMessage(toastMessage);
+}
+
+void projectM::writeRatings()
+{
+	m_presetLoader->writeRatings();
+}

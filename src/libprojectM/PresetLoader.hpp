@@ -86,6 +86,12 @@ class PresetLoader {
 		/// Get a preset name given an index
 		const std::string & getPresetName ( unsigned int index) const;
 
+		/// Get vector of preset names
+		const std::vector<std::string> & getPresetNames() const;
+
+		/// Get the preset index given a name
+		const unsigned int getPresetIndex(std::string &name) const;
+
 		/// Returns the number of presets in the active directory
 		inline std::size_t size() const {
 			return _entries.size();
@@ -102,6 +108,10 @@ class PresetLoader {
 		/// Rescans the active preset directory
 		void rescan();
 		void setPresetName(unsigned int index, std::string name);
+
+		void writeRatings();
+		void readRatings(std::vector<RatingList> &ratings);
+
 	private:
 		void handleDirectoryError();
 		std::string _dirname;
